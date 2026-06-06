@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI辅助财务舞弊分类 — 数据仪表盘</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --primary: #0066cc;
+    --primary-light: rgba(0,102,204,0.08);
+    --ink: #1d1d1f;
+    --muted: #7a7a7a;
+    --canvas: #ffffff;
+    --parchment: #f5f5f7;
+    --tile-dark: #272729;
+    --tile-dark-2: #2a2a2c;
+    --on-dark: #ffffff;
+    --hairline: #e0e0e0;
+    --success: #34c759;
+    --warning: #ff9500;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html {
+    scroll-snap-type: none;
+    scroll-behavior: smooth;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Segoe UI', sans-serif;
+    background: var(--canvas);
+    color: var(--ink);
+    line-height: 1.47;
+    font-size: 17px;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ── Page Section ── */
+  .page {
+    min-height: 100vh;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .page-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* ── Fade-in Animation ── */
+  .fade-up {
+    opacity: 0;
+    transform: translateY(60px);
+    transition: opacity 1.4s cubic-bezier(0.22, 1, 0.36, 1), transform 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .fade-up.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .fade-up.delay-1 { transition-delay: 0.2s; }
+  .fade-up.delay-2 { transition-delay: 0.4s; }
+  .fade-up.delay-3 { transition-delay: 0.6s; }
+  .fade-up.delay-4 { transition-delay: 0.8s; }
+  .fade-up.delay-5 { transition-delay: 1.0s; }
+
+  /* ── Hero ── */
+  .hero {
+    background: var(--tile-dark);
+    color: var(--on-dark);
+    text-align: center;
+  }
+  .hero h1 {
+    font-size: 56px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    line-height: 1.07;
+    margin-bottom: 16px;
+  }
+  .hero .lead {
+    font-size: 24px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.6);
+    max-width: 640px;
+    margin: 0 auto 40px;
+    line-height: 1.5;
+  }
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 64px;
+    flex-wrap: wrap;
+  }
+  .hero-stat-num {
+    font-size: 48px;
+    font-weight: 600;
+    color: var(--primary);
+    letter-spacing: -0.374px;
+  }
+  .hero-stat-label {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 4px;
+  }
+
+  /* ── Section Titles ── */
+  .section-title {
+    font-size: 40px;
+    font-weight: 600;
+    letter-spacing: -0.374px;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .section-sub {
+    font-size: 21px;
+    font-weight: 300;
+    color: var(--muted);
+    margin-bottom: 48px;
+    max-width: 640px;
+  }
+
+  /* ── Chart Grid ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .chart-card {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 24px;
+  }
+  .chart-card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .chart-card .desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 240px;
+  }
+
+  /* ── Full Width Chart ── */
+  .chart-full {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 32px;
+  }
+  .chart-full h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .chart-full .desc {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .chart-full-wrap {
+    position: relative;
+    height: 300px;
+  }
+
+  /* ── Dual Chart ── */
+  .dual-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  /* ── Insight Cards ── */
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .insight-card {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 28px;
+  }
+  .insight-card .icon {
+    font-size: 32px;
+    margin-bottom: 16px;
+  }
+  .insight-card h4 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .insight-card p {
+    font-size: 15px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── Outlook ── */
+  .outlook-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .outlook-card {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 28px;
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .outlook-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+  }
+  .outlook-card .num {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 12px;
+  }
+  .outlook-card h4 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+  .outlook-card p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── Dark Section ── */
+  .dark { background: var(--tile-dark); color: var(--on-dark); }
+  .dark .section-sub { color: rgba(255,255,255,0.5); }
+  .dark .chart-card { background: var(--tile-dark-2); border-color: rgba(255,255,255,0.08); }
+  .dark .chart-card h3 { color: var(--on-dark); }
+  .dark .chart-full { background: var(--tile-dark-2); border-color: rgba(255,255,255,0.08); }
+  .dark .chart-full h3 { color: var(--on-dark); }
+  .dark .dual-grid .chart-card { background: var(--tile-dark-2); border-color: rgba(255,255,255,0.08); }
+
+  /* ── Parchment Section ── */
+  .parchment { background: var(--parchment); }
+
+  /* ── CTA ── */
+  .cta-link {
+    color: var(--primary);
+    text-decoration: none;
+    font-size: 17px;
+    font-weight: 400;
+    transition: color 0.2s;
+  }
+  .cta-link:hover { color: #0055cc; }
+
+  /* ── Bouncing Arrow ── */
+  .scroll-arrow {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.4s;
+    animation: bounce 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  .scroll-arrow:hover { opacity: 0.9; }
+  .scroll-arrow svg {
+    width: 32px;
+    height: 32px;
+    fill: none;
+    stroke: #fff;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+  }
+  .page:not(.hero) .scroll-arrow svg {
+    stroke: var(--muted);
+    filter: drop-shadow(0 1px 4px rgba(0,0,0,0.1));
+  }
+  .scroll-arrow.hidden { opacity: 0; pointer-events: none; }
+
+  @keyframes bounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(10px); }
+  }
+
+  /* ── Footer ── */
+  .footer-page {
+    background: var(--parchment);
+    min-height: auto;
+    padding: 48px;
+    scroll-snap-align: start;
+    text-align: center;
+  }
+  .footer-page p {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1024px) {
+    .chart-grid { grid-template-columns: 1fr 1fr; }
+    .outlook-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 768px) {
+    .page { padding: 60px 24px; }
+    .hero h1 { font-size: 34px; }
+    .hero .lead { font-size: 17px; }
+    .hero-stats { gap: 32px; }
+    .hero-stat-num { font-size: 34px; }
+    .section-title { font-size: 28px; }
+    .section-sub { font-size: 17px; }
+    .chart-grid { grid-template-columns: 1fr; }
+    .dual-grid { grid-template-columns: 1fr; }
+    .insight-grid { grid-template-columns: 1fr; }
+    .outlook-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Page 1: Hero -->
+<div class="page hero">
+  <div class="page-inner">
+    <h1 class="fade-up">AI辅助财务舞弊分类</h1>
+    <p class="lead fade-up delay-1">基于大模型的证监会违规处罚公告结构化标注<br>3,724 条数据全景分析</p>
+    <div class="hero-stats">
+      <div class="fade-up delay-2">
+        <div class="hero-stat-num">3,724</div>
+        <div class="hero-stat-label">总标注行数</div>
+      </div>
+      <div class="fade-up delay-3">
+        <div class="hero-stat-num">482</div>
+        <div class="hero-stat-label">年报相关</div>
+      </div>
+      <div class="fade-up delay-3">
+        <div class="hero-stat-num">319</div>
+        <div class="hero-stat-label">影响财务信息</div>
+      </div>
+      <div class="fade-up delay-4">
+        <div class="hero-stat-num">77</div>
+        <div class="hero-stat-label">第三方配合</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Page 2: 三任务分布 -->
+<div class="page">
+  <div class="page-inner">
+    <h2 class="section-title fade-up">三任务标注分布</h2>
+    <p class="section-sub fade-up delay-1">三个任务存在条件依赖：任务二仅在任务一=1时执行，任务三仅在前两步均为1时执行</p>
+    <div class="chart-grid">
+      <div class="chart-card fade-up delay-2">
+        <h3>ann_related</h3>
+        <div class="desc">是否影响年报</div>
+        <div class="chart-wrap"><canvas id="chartAR"></canvas></div>
+      </div>
+      <div class="chart-card fade-up delay-3">
+        <h3>ann_fin_flag</h3>
+        <div class="desc">是否影响财务信息（子集）</div>
+        <div class="chart-wrap"><canvas id="chartAF"></canvas></div>
+      </div>
+      <div class="chart-card fade-up delay-4">
+        <h3>third_party_flag</h3>
+        <div class="desc">是否有第三方配合（子集）</div>
+        <div class="chart-wrap"><canvas id="chartTP"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Page 3: 年份分布 -->
+<div class="page dark">
+  <div class="page-inner">
+    <h2 class="section-title fade-up">违规年份分布</h2>
+    <p class="section-sub fade-up delay-1">ann_related=1 的行中，受影响年份的时间分布</p>
+    <div class="chart-full fade-up delay-2">
+      <h3>各年份违规频次</h3>
+      <div class="desc">2016-2022年是违规高发期，与注册制改革和监管趋严同步</div>
+      <div class="chart-full-wrap"><canvas id="chartYear"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- Page 4: 会计要素 & 第三方类型 -->
+<div class="page">
+  <div class="page-inner">
+    <h2 class="section-title fade-up">深层分析</h2>
+    <p class="section-sub fade-up delay-1">会计要素映射与第三方配合造假类型</p>
+    <div class="dual-grid">
+      <div class="chart-card fade-up delay-2">
+        <h3>六大会计要素分布</h3>
+        <div class="desc">利润操纵是最常见手法</div>
+        <div class="chart-wrap"><canvas id="chartElem"></canvas></div>
+      </div>
+      <div class="chart-card fade-up delay-3">
+        <h3>第三方配合造假类型</h3>
+        <div class="desc">客户和供应商是最常见的配合方</div>
+        <div class="chart-wrap"><canvas id="chartTPType"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Page 5: 洞察 -->
+<div class="page parchment">
+  <div class="page-inner">
+    <h2 class="section-title fade-up">分析洞察</h2>
+    <p class="section-sub fade-up delay-1">基于标注数据的发现</p>
+    <div class="insight-grid">
+      <div class="insight-card fade-up delay-2">
+        <div class="icon">📊</div>
+        <h4>年报相关性是关键筛选器</h4>
+        <p>仅12.9%的违规行为影响年报，说明大部分违规属于交易层面（窗口期、内幕交易）而非信息披露层面。AI可优先筛选年报相关违规，大幅缩小人工复核范围。</p>
+      </div>
+      <div class="insight-card fade-up delay-3">
+        <div class="icon">💰</div>
+        <h4>利润操纵是最常见手法</h4>
+        <p>在影响财务信息的案例中，利润（389次）和收入（202次）是最常被操纵的会计要素。AI可重点监控利润异常波动，作为舞弊预警的核心指标。</p>
+      </div>
+      <div class="insight-card fade-up delay-3">
+        <div class="icon">🏢</div>
+        <h4>客户配合造假最普遍</h4>
+        <p>第三方配合造假中，客户（55次）和供应商（29次）是最常见的配合方。AI可通过分析关联交易对手的异常行为，识别潜在的配合造假链条。</p>
+      </div>
+      <div class="insight-card fade-up delay-4">
+        <div class="icon">📈</div>
+        <h4>2016-2022年是违规高发期</h4>
+        <p>违规高峰集中在2016-2022年，与注册制改革和监管趋严同步。AI可结合监管政策变化，动态调整风险预警阈值。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Page 6: 展望 -->
+<div class="page dark">
+  <div class="page-inner">
+    <h2 class="section-title fade-up">展望与未来方向</h2>
+    <p class="section-sub fade-up delay-1">AI辅助财务舞弊分析的前沿探索</p>
+    <div class="outlook-grid">
+      <div class="outlook-card fade-up delay-2">
+        <div class="num">01</div>
+        <h4>多模型交叉验证</h4>
+        <p>用多个大模型（DeepSeek、MiniMax、Mimo等）分别标注同一批数据，对不一致的行进行人工复核。这不仅能提高标注准确率，还能发现模型各自的盲区——例如Mimo在年报相关性判断上更准确，而DeepSeek在财务信息识别上更强。</p>
+      </div>
+      <div class="outlook-card fade-up delay-2">
+        <div class="num">02</div>
+        <h4>Few-shot 示例学习</h4>
+        <p>在Prompt中加入典型案例（如"业绩预告≠年报"、"临时公告≠年报遗漏"），帮助模型理解边界情况。从本次质量检查中发现的18个边界案例，可以整理为标准示例库，持续迭代优化Prompt。</p>
+      </div>
+      <div class="outlook-card fade-up delay-3">
+        <div class="num">03</div>
+        <h4>Chain-of-Thought 推理</h4>
+        <p>引导模型先分析违规行为的类型（虚假记载/重大遗漏/误导性陈述），再判断是否影响年报，最后提取年份和会计要素。分步推理比一步到位更准确，尤其在边界案例上。</p>
+      </div>
+      <div class="outlook-card fade-up delay-3">
+        <div class="num">04</div>
+        <h4>实时监管数据接入</h4>
+        <p>将标注系统与证监会处罚公告数据库对接，实现新公告的自动标注和风险预警。当新的违规公告发布时，AI自动完成结构化标注并推送预警，缩短从违规发生到投资者知情的时间差。</p>
+      </div>
+      <div class="outlook-card fade-up delay-4">
+        <div class="num">05</div>
+        <h4>知识图谱构建</h4>
+        <p>基于标注结果构建"上市公司-违规类型-第三方-会计要素"的知识图谱。通过图谱分析，可以发现系统性造假模式（如某供应商同时配合多家上市公司造假），为监管提供线索。</p>
+      </div>
+      <div class="outlook-card fade-up delay-4">
+        <div class="num">06</div>
+        <h4>人机协同工作流</h4>
+        <p>AI做初筛，人工做终审。对于高置信度的标注（如明确提到"年报虚假记载"），AI直接输出；对于边界案例（如"未按规定披露"），AI标记为"需人工复核"。这种分层处理兼顾效率与准确率，是AI辅助财务分析的最佳实践。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer-page" id="page7">
+  <p>夏思远 · 2023110537 · G02组 · 智能财务前沿课程作业</p>
+  <p>使用 Mimo V2.5 Pro 模型标注 · 5线程并行 · 三层质量检查 · Apple Design Language</p>
+</div>
+
+<!-- Scroll Arrow -->
+<div class="scroll-arrow" id="scrollArrow" onclick="goNext()">
+  <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+</div>
+
+<script>
+// Data
+const DATA = {
+  ar: {labels: ['不影响年报', '影响年报'], values: [3239, 482]},
+  af: {labels: ['不影响财务信息', '影响财务信息'], values: [163, 319]},
+  tp: {labels: ['无第三方配合', '有第三方配合'], values: [242, 77]},
+  year: {labels: ['93','','96','','99','','01','','03','','05','','07','','09','','11','','13','','15','','17','','19','','21','','23','','25'], values: [1,1,1,1,3,8,9,6,4,6,6,9,15,12,10,14,21,30,28,30,33,62,84,90,84,68,70,68,45,16,4]},
+  elem: {labels: ['利润', '资产', '收入', '费用', '负债', '所有者权益'], values: [389, 288, 202, 201, 122, 71]},
+  tpType: {labels: ['其他企业', '客户', '供应商', '自然人', '银行/金融机构', '评估机构', '券商/保荐机构', '会计师事务所'], values: [103, 55, 29, 29, 10, 6, 2, 2]}
+};
+
+const BLUE = '#0066cc';
+const COLORS = ['#0066cc', '#34c759', '#ff9500', '#af52de', '#ff2d55', '#5856d6', '#00c7be', '#ff375f'];
+
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif";
+Chart.defaults.font.size = 12;
+
+// Doughnut helper
+function makeDoughnut(id, labels, values) {
+  new Chart(document.getElementById(id), {
+    type: 'doughnut',
+    data: {labels, datasets: [{data: values, backgroundColor: [BLUE, '#e0e0e0'], borderWidth: 0, hoverOffset: 4}]},
+    options: {responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: {legend: {position: 'bottom', labels: {padding: 12, usePointStyle: true, pointStyle: 'circle', font: {size: 12}}}}}
+  });
+}
+
+// Bar helper
+function makeBar(id, labels, values, horizontal) {
+  new Chart(document.getElementById(id), {
+    type: 'bar',
+    data: {labels, datasets: [{data: values, backgroundColor: COLORS.slice(0, values.length), borderRadius: 6, barPercentage: 0.6}]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: horizontal ? 'y' : 'x',
+      scales: {y: {beginAtZero: true, grid: {color: 'rgba(128,128,128,0.08)'}}, x: {grid: {display: false}}},
+      plugins: {legend: {display: false}}
+    }
+  });
+}
+
+makeDoughnut('chartAR', DATA.ar.labels, DATA.ar.values);
+makeDoughnut('chartAF', DATA.af.labels, DATA.af.values);
+makeDoughnut('chartTP', DATA.tp.labels, DATA.tp.values);
+
+new Chart(document.getElementById('chartYear'), {
+  type: 'bar',
+  data: {labels: DATA.year.labels, datasets: [{data: DATA.year.values, backgroundColor: BLUE, borderRadius: 4, barPercentage: 0.7}]},
+  options: {responsive: true, maintainAspectRatio: false, scales: {y: {beginAtZero: true, grid: {color: 'rgba(255,255,255,0.06)'}}, x: {grid: {display: false}}}, plugins: {legend: {display: false}}}
+});
+
+makeBar('chartElem', DATA.elem.labels, DATA.elem.values, true);
+makeBar('chartTPType', DATA.tpType.labels, DATA.tpType.values, true);
+
+// Scroll animation
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, {threshold: 0.1, rootMargin: '0px 0px -60px 0px'});
+
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+// Page navigation
+const pages = document.querySelectorAll('.page, .footer-page');
+let currentPage = 0;
+let isScrolling = false;
+
+function goNext() {
+  if (currentPage < pages.length - 1) {
+    currentPage++;
+    pages[currentPage].scrollIntoView({behavior: 'smooth'});
+  }
+}
+
+function goToPage(idx) {
+  if (idx >= 0 && idx < pages.length) {
+    currentPage = idx;
+    pages[currentPage].scrollIntoView({behavior: 'smooth'});
+  }
+}
+
+// Update current page on scroll
+const pageObserver = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const idx = Array.from(pages).indexOf(e.target);
+      if (idx >= 0) {
+        currentPage = idx;
+        // Hide arrow on last page
+        document.getElementById('scrollArrow').classList.toggle('hidden', currentPage >= pages.length - 1);
+      }
+    }
+  });
+}, {threshold: 0.5});
+
+pages.forEach(p => pageObserver.observe(p));
+
+// Scroll wheel snap (debounced)
+let scrollTimeout;
+window.addEventListener('wheel', (e) => {
+  if (isScrolling) return;
+  clearTimeout(scrollTimeout);
+  scrollTimeout = setTimeout(() => {
+    if (Math.abs(e.deltaY) > 30) {
+      isScrolling = true;
+      if (e.deltaY > 0 && currentPage < pages.length - 1) {
+        currentPage++;
+      } else if (e.deltaY < 0 && currentPage > 0) {
+        currentPage--;
+      }
+      pages[currentPage].scrollIntoView({behavior: 'smooth'});
+      setTimeout(() => { isScrolling = false; }, 800);
+    }
+  }, 80);
+}, {passive: true});
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+    e.preventDefault();
+    goNext();
+  } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+    e.preventDefault();
+    if (currentPage > 0) {
+      currentPage--;
+      pages[currentPage].scrollIntoView({behavior: 'smooth'});
+    }
+  }
+});
+</script>
+</body>
+</html>

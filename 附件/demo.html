@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 财务舞弊标注系统 · Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary: #0066cc;
+    --ink: #1d1d1f;
+    --muted: #7a7a7a;
+    --canvas: #ffffff;
+    --parchment: #f5f5f7;
+    --hairline: #e0e0e0;
+    --success: #34c759;
+    --warning: #ff9500;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+    background: var(--parchment);
+    color: var(--ink);
+    line-height: 1.47;
+    font-size: 17px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    background: var(--canvas);
+    border-bottom: 1px solid var(--hairline);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-brand {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .nav-badge {
+    font-size: 12px;
+    background: var(--primary);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    margin-left: 8px;
+  }
+
+  /* ── Container ── */
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    text-align: center;
+    padding: 48px 0 32px;
+  }
+  .hero h1 {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.374px;
+    margin-bottom: 8px;
+  }
+  .hero p {
+    font-size: 17px;
+    color: var(--muted);
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .step {
+    font-size: 12px;
+    background: var(--parchment);
+    border: 1px solid var(--hairline);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  /* ── Form ── */
+  label {
+    display: block;
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    margin-top: 12px;
+  }
+  label:first-child { margin-top: 0; }
+  input, select {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--parchment);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    color: var(--ink);
+    font-size: 15px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  input:focus, select:focus { border-color: var(--primary); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .row3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; }
+
+  /* ── Buttons ── */
+  .btn-group { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 9999px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn:active:not(:disabled) { transform: scale(0.95); }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: #0055cc; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--muted);
+  }
+  .btn-outline:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+
+  /* ── Progress ── */
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--parchment);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 2px;
+    transition: width .3s;
+    width: 0%;
+  }
+  .status {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .status .hl { color: var(--primary); font-weight: 600; }
+
+  /* ── Log ── */
+  .log-box {
+    background: var(--parchment);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'SF Mono', 'Cascadia Code', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.8;
+    margin-top: 12px;
+  }
+
+  /* ── Stats ── */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .stat-card {
+    background: var(--parchment);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-value { font-size: 24px; font-weight: 600; color: var(--primary); }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── File Drop ── */
+  .file-drop {
+    border: 2px dashed var(--hairline);
+    border-radius: 10px;
+    padding: 32px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .2s;
+    margin-top: 8px;
+  }
+  .file-drop:hover, .file-drop.dragover { border-color: var(--primary); color: var(--primary); }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding: 32px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 640px) {
+    .hero h1 { font-size: 28px; }
+    .row, .row3 { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div><span class="nav-brand">AI 财务舞弊标注系统</span><span class="nav-badge">Demo</span></div>
+</div>
+
+<div class="container">
+  <div class="hero">
+    <h1>大模型 API 批量标注</h1>
+    <p>上传 xlsx → 配置 API → 批量标注 → 下载结果</p>
+  </div>
+
+  <!-- Step 1: API Config -->
+  <div class="card">
+    <div class="card-title">API 配置 <span class="step">Step 1</span></div>
+    <div class="row3">
+      <div><label>BASE_URL</label><input id="baseUrl" value="https://token-plan-cn.xiaomimimo.com/v1"></div>
+      <div><label>MODEL</label><input id="model" value="mimo-v2.5-pro"></div>
+      <div><label>API_KEY</label><input id="apiKey" type="password" placeholder="请输入"></div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-outline" onclick="preset('mimo')">Mimo</button>
+      <button class="btn btn-outline" onclick="preset('deepseek')">DeepSeek</button>
+      <button class="btn btn-outline" onclick="preset('minimax')">MiniMax</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Upload -->
+  <div class="card">
+    <div class="card-title">上传数据 <span class="step">Step 2</span></div>
+    <div class="file-drop" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div id="dropText">拖拽 xlsx 文件到此处，或点击选择</div>
+      <input type="file" id="fileInput" accept=".xlsx" style="display:none">
+    </div>
+  </div>
+
+  <!-- Step 3: Run -->
+  <div class="card">
+    <div class="card-title">执行标注 <span class="step">Step 3</span></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btnRun" onclick="runAll()" disabled>开始标注</button>
+      <button class="btn btn-success" id="btnDownload" onclick="download()" disabled>下载结果</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div class="status" id="status">等待上传数据...</div>
+    <div class="stats">
+      <div class="stat-card"><div class="stat-value" id="statAR1">0</div><div class="stat-label">ann_related=1</div></div>
+      <div class="stat-card"><div class="stat-value" id="statAF1">0</div><div class="stat-label">ann_fin_flag=1</div></div>
+      <div class="stat-card"><div class="stat-value" id="statTP1">0</div><div class="stat-label">third_party=1</div></div>
+    </div>
+    <div class="log-box" id="logBox"></div>
+  </div>
+</div>
+
+<div class="footer">
+  夏思远 · 2023110537 · G02组 · Demo Version
+</div>
+
+<script>
+// System Prompt (from prompts/system_prompt.md)
+const SYSTEM_PROMPT = `你是一名专业的财务舞弊分析专家。你的任务是对中国证监会发布的上市公司违规处罚公告进行结构化标注。
+
+你需要完成以下三个任务：
+
+## 任务一：年报相关性判断（ann_related, ann_year）
+判断该违规行为是否导致上市公司年度报告中的信息存在错误或遗漏。
+ann_related=1：年报虚假记载、重大遗漏、误导性陈述；招股说明书虚假（欺诈上市）
+ann_related=0：仅半年报/季报、窗口期交易、内幕交易、问询函回复、公司治理、业绩预告不准（年报正确）、仅临时公告未披露
+边界规则：同时提及半年报和年报且年报有误→1；仅"未按规定披露"未指明年报→0；业绩预告偏差→0；审计机构未勤勉→0
+
+## 任务二：财务信息与会计要素（ann_fin_flag, ann_fin_info）
+仅在 ann_related=1 时执行。ann_fin_flag=1：影响财务报表金额；=0：仅信息披露不完整
+ann_fin_info：输出年份与六大会计要素（资产/负债/所有者权益/收入/费用/利润）的对应关系
+约束：禁止使用具体科目名；year 必须在 ann_year 范围内
+
+## 任务三：第三方配合造假（third_party_flag, third_party_list）
+仅在 ann_related=1 且 ann_fin_flag=1 时执行。
+第三方：上市公司以外的独立法人或自然人，不包括子公司和实控人
+配合造假：明知舞弊仍提供实质性协助（虚假合同/单据/资金循环/壳公司等）
+不属于配合：正常业务往来、审计机构仅未勤勉尽责、被动配合监管调查
+第三方类型：客户、供应商、银行/金融机构、券商/保荐机构、会计师事务所、评估机构、自然人、其他企业
+
+## 输出格式
+{"ann_related": 0或1, "ann_year": [年份]或null, "ann_fin_flag": 0或1或null, "ann_fin_info": [{year, elements}]或null, "third_party_flag": 0或1或null, "third_party_list": [{name, type, role}]或null}
+null 必须是 JSON null；ann_related=0 时后续全 null`;
+
+// Presets
+const PRESETS = {
+  mimo: {url: 'https://token-plan-cn.xiaomimimo.com/v1', model: 'mimo-v2.5-pro'},
+  deepseek: {url: 'https://api.deepseek.com', model: 'deepseek-chat'},
+  minimax: {url: 'https://api.minimax.chat/v1', model: 'MiniMax-M2.7'}
+};
+
+function preset(name) {
+  const p = PRESETS[name];
+  document.getElementById('baseUrl').value = p.url;
+  document.getElementById('model').value = p.model;
+}
+
+// State
+let workbook = null;
+let activities = [];
+let results = [];
+let running = false;
+
+// File handling
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    workbook = XLSX.read(e.target.result, {type: 'array'});
+    const ws = workbook.Sheets[workbook.SheetNames[0]];
+    const data = XLSX.utils.sheet_to_json(ws, {header: 1});
+
+    // Find Activity column
+    let actCol = -1;
+    for (let r = 0; r < Math.min(4, data.length); r++) {
+      for (let c = 0; c < data[r].length; c++) {
+        const v = String(data[r][c] || '').trim();
+        if (['Activity', '违规行为', '违规描述', '处罚事实'].includes(v)) {
+          actCol = c;
+          break;
+        }
+      }
+      if (actCol >= 0) break;
+    }
+    if (actCol < 0) actCol = 16; // default col 17
+
+    activities = [];
+    for (let r = 3; r < data.length; r++) {
+      const val = data[r] ? data[r][actCol] : '';
+      activities.push(val ? String(val).trim() : '');
+    }
+
+    document.getElementById('dropText').textContent = `${file.name} — ${activities.length} 行`;
+    document.getElementById('btnRun').disabled = false;
+    log(`已加载 ${activities.length} 行 (Activity 列: 第${actCol + 1}列)`);
+    setStatus(`已加载 ${activities.length} 行，准备就绪`);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// API call
+async function callAPI(activity) {
+  const url = document.getElementById('baseUrl').value.trim().replace(/\/+$/, '') + '/chat/completions';
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + document.getElementById('apiKey').value.trim()
+    },
+    body: JSON.stringify({
+      model: document.getElementById('model').value.trim(),
+      messages: [
+        {role: 'system', content: SYSTEM_PROMPT},
+        {role: 'user', content: '请对以下违规公告进行标注：\n\n' + activity}
+      ],
+      temperature: 0.1,
+      max_tokens: 4096,
+      response_format: {type: 'json_object'}
+    })
+  });
+  const data = await resp.json();
+  let content = data.choices[0].message.content || '';
+  content = content.replace /<think>[\s\S]*?</think>/g, '').trim();
+  const m = content.match(/\{[\s\S]*\}/);
+  return m ? JSON.parse(m[0]) : null;
+}
+
+function validate(r) {
+  if (!r) return {ann_related:0,ann_year:null,ann_fin_flag:null,ann_fin_info:null,third_party_flag:null,third_party_list:null};
+  let ar = r.ann_related === 1 ? 1 : 0;
+  if (ar === 0) return {ann_related:0,ann_year:null,ann_fin_flag:null,ann_fin_info:null,third_party_flag:null,third_party_list:null};
+  let ay = Array.isArray(r.ann_year) ? r.ann_year.filter(y => y>=1990&&y<=2030).sort() : null;
+  let af = r.ann_fin_flag === 1 ? 1 : 0;
+  let ai = af===1&&Array.isArray(r.ann_fin_info) ? r.ann_fin_info : null;
+  let tp = r.third_party_flag === 1 ? 1 : 0;
+  let tl = tp===1&&Array.isArray(r.third_party_list) ? r.third_party_list : null;
+  return {ann_related:ar, ann_year:ay, ann_fin_flag:af, ann_fin_info:ai, third_party_flag:tp, third_party_list:tl};
+}
+
+// Run
+async function runAll() {
+  if (running) return;
+  const key = document.getElementById('apiKey').value.trim();
+  if (!key) { alert('请输入 API_KEY'); return; }
+
+  running = true;
+  document.getElementById('btnRun').disabled = true;
+  results = [];
+  let ar1=0, af1=0, tp1=0;
+  const start = Date.now();
+
+  for (let i = 0; i < activities.length; i++) {
+    const act = activities[i];
+    if (!act) {
+      results.push({ann_related:'null',ann_year:'null',ann_fin_flag:'null',ann_fin_info:'null',third_party_flag:'null',third_party_list:'null'});
+      continue;
+    }
+
+    try {
+      const raw = await callAPI(act);
+      const r = validate(raw);
+      results.push({
+        ann_related: r.ann_related,
+        ann_year: r.ann_year ? JSON.stringify(r.ann_year) : 'null',
+        ann_fin_flag: r.ann_fin_flag !== null ? r.ann_fin_flag : 'null',
+        ann_fin_info: r.ann_fin_info ? JSON.stringify(r.ann_fin_info) : 'null',
+        third_party_flag: r.third_party_flag !== null ? r.third_party_flag : 'null',
+        third_party_list: r.third_party_list ? JSON.stringify(r.third_party_list) : 'null'
+      });
+      if (r.ann_related === 1) ar1++;
+      if (r.ann_fin_flag === 1) af1++;
+      if (r.third_party_flag === 1) tp1++;
+    } catch(e) {
+      results.push({ann_related:0,ann_year:'null',ann_fin_flag:'null',ann_fin_info:'null',third_party_flag:'null',third_party_list:'null'});
+      log(`Row ${i+1} 错误: ${e.message}`);
+    }
+
+    const pct = ((i+1)/activities.length*100).toFixed(1);
+    const elapsed = (Date.now()-start)/1000;
+    const speed = (i+1)/elapsed;
+    const eta = (activities.length-i-1)/speed/60;
+    document.getElementById('progress').style.width = pct+'%';
+    setStatus(`已标注 <span class="hl">${i+1}/${activities.length}</span> (${pct}%) · ${speed.toFixed(1)}条/秒 · 剩余${eta.toFixed(0)}分钟`);
+    document.getElementById('statAR1').textContent = ar1;
+    document.getElementById('statAF1').textContent = af1;
+    document.getElementById('statTP1').textContent = tp1;
+
+    if ((i+1)%10===0) log(`进度: ${i+1}/${activities.length} (${pct}%)`);
+  }
+
+  document.getElementById('btnDownload').disabled = false;
+  running = false;
+  log(`标注完成! 耗时${((Date.now()-start)/60000).toFixed(1)}分钟`);
+}
+
+// Download
+function download() {
+  if (!workbook || !results.length) return;
+  const ws = workbook.Sheets[workbook.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(ws, {header: 1});
+
+  // Add headers
+  const headers = ['ann_related','ann_year','ann_fin_flag','ann_fin_info','third_party_flag','third_party_list'];
+  const hdrRow = Math.min(3, data.length) - 1;
+  const startCol = data[hdrRow].length;
+  headers.forEach((h,i) => data[hdrRow][startCol+i] = h);
+
+  // Add data
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    data[i+3][startCol] = r.ann_related;
+    data[i+3][startCol+1] = r.ann_year;
+    data[i+3][startCol+2] = r.ann_fin_flag;
+    data[i+3][startCol+3] = r.ann_fin_info;
+    data[i+3][startCol+4] = r.third_party_flag;
+    data[i+3][startCol+5] = r.third_party_list;
+  }
+
+  const newWs = XLSX.utils.aoa_to_sheet(data);
+  workbook.Sheets[workbook.SheetNames[0]] = newWs;
+  XLSX.writeFile(workbook, 'STK_labeled_output.xlsx');
+  log('已下载 STK_labeled_output.xlsx');
+}
+
+function log(msg) {
+  const box = document.getElementById('logBox');
+  box.innerHTML += `<div>${new Date().toLocaleTimeString()} ${msg}</div>`;
+  box.scrollTop = box.scrollHeight;
+}
+function setStatus(html) {
+  document.getElementById('status').innerHTML = html;
+}
+</script>
+</body>
+</html>
